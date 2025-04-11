@@ -13,53 +13,32 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-struct Cursor {
-    x: f64,
-    y: f64,
-}
-
-impl Cursor {
-    fn down(&mut self) -> Cursor {
-        return Cursor {
-            x: self.x,
-            y: self.y + 1.0,
-        };
+mod nin_core {
+    pub struct NinCore {
+        is_idle: bool,
     }
 
-    fn same(&self, other: Cursor) -> bool {
-        return self.x == other.x && self.y == other.y;
+    impl NinCore {
+        pub fn new() -> Self {
+            Self {
+                is_idle: true,
+            }
+        }
+
+        pub fn is_idle(&self) -> bool {
+            self.is_idle
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rstest::*;
 
     #[test]
-    fn カーソルを下にずらす() {
-        let mut cursor = Cursor { x: 0.0, y: 0.0 };
+    fn nin_coreの起動時はアイドルモードになっている() {
+        let sut = nin_core::NinCore::new();
 
-        let moved = cursor.down();
-
-        assert_eq!(true, moved.same(Cursor { x: 0.0, y: 1.0 }))
-    }
-
-    #[rstest]
-    #[case::same(vec![0.0, 0.0], vec![0.0, 0.0], true)]
-    #[case::not_same(vec![0.0, 0.0], vec![0.1, 0.0], false)]
-    #[test]
-    fn カーソルの等価性のテスト(
-        #[case] my: Vec<f64>,
-        #[case] other: Vec<f64>,
-        #[case] want: bool,
-    ) {
-        let cursor_1 = Cursor { x: my[0], y: my[1] };
-        let cursor_2 = Cursor {
-            x: other[0],
-            y: other[1],
-        };
-
-        assert_eq!(want, cursor_1.same(cursor_2))
+        assert_eq!(sut.is_idle(), true);
     }
 }
