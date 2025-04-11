@@ -1,0 +1,5 @@
+{
+  "rust-analyzer.linkedProjects": [
+    "/Users/takuya.aotsuka/projects/NIN/app/src-tauri/Cargo.toml"
+  ]
+}
