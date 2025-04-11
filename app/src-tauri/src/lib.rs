@@ -14,25 +14,49 @@ pub fn run() {
 }
 
 mod nin_core {
+    #[allow(dead_code)]
+    pub const CONTROL_KEY: &str = "ctrl";
+    #[allow(dead_code)]
+    pub const SPACE_KEY: &str = "space";
+
+    #[allow(dead_code)]
     pub struct NinCore {
         is_idle: bool,
+        is_cursor: bool,
     }
 
     impl NinCore {
+        #[allow(dead_code)]
         pub fn new() -> Self {
             Self {
                 is_idle: true,
+                is_cursor: false,
             }
         }
 
+        #[allow(dead_code)]
         pub fn is_idle(&self) -> bool {
             self.is_idle
+        }
+
+        #[allow(dead_code)]
+        pub fn fire_key_event(&mut self, key1: &str, key2: &str) {
+            if key1 == "ctrl" && key2 == "space" {
+                self.is_cursor = true;
+            }
+        }
+
+        #[allow(dead_code)]
+        pub fn is_cursor(&self) -> bool {
+            self.is_cursor
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::nin_core::{CONTROL_KEY, SPACE_KEY};
+
     use super::*;
 
     #[test]
@@ -40,5 +64,14 @@ mod tests {
         let sut = nin_core::NinCore::new();
 
         assert_eq!(sut.is_idle(), true);
+    }
+
+    #[test]
+    fn nin_coreはctrlとspaceを受け取ったらカーソルモードになる() {
+        let mut sut = nin_core::NinCore::new();
+
+        sut.fire_key_event(CONTROL_KEY, SPACE_KEY);
+
+        assert_eq!(sut.is_cursor(), true);
     }
 }
