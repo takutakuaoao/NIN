@@ -41,7 +41,7 @@ mod nin_core {
 
         #[allow(dead_code)]
         pub fn fire_key_event(&mut self, key1: &str, key2: &str) {
-            if key1 == "ctrl" && key2 == "space" {
+            if key1 == CONTROL_KEY && key2 == SPACE_KEY {
                 self.is_cursor = true;
             }
         }
