@@ -14,21 +14,19 @@ pub fn run() {
 }
 
 mod nin_core {
-    #[allow(dead_code)]
-    pub const CONTROL_KEY: &str = "ctrl";
-    #[allow(dead_code)]
-    pub const SPACE_KEY: &str = "space";
-    #[allow(dead_code)]
-    pub const J_KEY: &str = "j";
-
-    const CURSOR_MODE_EVENT: &str = "cursor_mode";
-
-    const CURSOR_DOWN_EVENT: &str = "cursor_down";
-
     #[derive(PartialEq, Copy, Clone)]
     enum MODE {
         IDLE,
         CURSOR,
+    }
+
+    #[derive(PartialEq)]
+    pub enum Key {
+        Control,
+        Space,
+        J,
+        Other,
+        Empty,
     }
 
     #[allow(dead_code)]
@@ -57,29 +55,14 @@ mod nin_core {
         }
 
         #[allow(dead_code)]
-        pub fn fire_key_event(&mut self, key1: &str, key2: &str) {
-            let event = self.to_event_from_keys(key1, key2, self.mode);
-
-            if event == CURSOR_MODE_EVENT {
+        pub fn fire_key_event(&mut self, key1: Key, key2: Key) {
+            if key1 == Key::Control && key2 == Key::Space {
                 self.mode = MODE::CURSOR;
             }
 
-            if event == CURSOR_DOWN_EVENT {
+            if self.mode == MODE::CURSOR && key1 == Key::J && key2 == Key::Empty {
                 self.mouse_controller.move_cursor(0, 10);
             }
-        }
-
-        // @TODO これを別structにして、NinCoreがショートカットキーの詳細を知らなくてもよくする
-        fn to_event_from_keys(&self, key1: &str, key2: &str, mode: MODE) -> String {
-            if key1 == CONTROL_KEY && key2 == SPACE_KEY {
-                return CURSOR_MODE_EVENT.to_string()
-            }
-
-            if mode == MODE::CURSOR && key1 == J_KEY {
-                return CURSOR_DOWN_EVENT.to_string()
-            }
-
-            "".to_string()
         }
     }
 
@@ -90,7 +73,7 @@ mod nin_core {
 
 #[cfg(test)]
 mod tests {
-    use crate::nin_core::{MouseController, NinCore, CONTROL_KEY, J_KEY, SPACE_KEY};
+    use crate::nin_core::{MouseController, NinCore, Key};
     use mockall::{mock, predicate};
 
     use super::*;
@@ -115,7 +98,7 @@ mod tests {
         let mock = MockMockMouseController::new();
         let mut sut = nin_core::NinCore::new(mock);
 
-        sut.fire_key_event(CONTROL_KEY, SPACE_KEY);
+        sut.fire_key_event(Key::Control, Key::Space);
 
         assert_eq!(sut.is_cursor(), true);
     }
@@ -128,8 +111,9 @@ mod tests {
             .times(1).returning(|_, _| ());
 
         let mut nin = NinCore::new(mock);
-        nin.fire_key_event(CONTROL_KEY, SPACE_KEY);
-        nin.fire_key_event(J_KEY, "");
+
+        nin.fire_key_event(Key::Control, Key::Space);
+        nin.fire_key_event(Key::J, Key::Empty);
     }
 
     #[test]
@@ -140,7 +124,7 @@ mod tests {
 
         let mut sut = nin_core::NinCore::new(mock);
 
-        sut.fire_key_event(CONTROL_KEY, SPACE_KEY);
-        sut.fire_key_event("p", "");
+        sut.fire_key_event(Key::Control, Key::Space);
+        sut.fire_key_event(Key::Other, Key::Empty);
     }
 }
