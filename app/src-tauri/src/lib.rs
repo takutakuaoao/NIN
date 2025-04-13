@@ -25,21 +25,18 @@ mod nin_core {
         Control,
         Space,
         J,
-        Other,
         Empty,
     }
 
     #[allow(dead_code)]
     pub struct NinCore {
-        mouse_controller: Box<dyn MouseController>,
         mode: MODE,
     }
 
     impl NinCore {
         #[allow(dead_code)]
-        pub fn new(mouse_controller: impl MouseController + 'static) -> Self {
+        pub fn new() -> Self {
             Self {
-                mouse_controller: Box::new(mouse_controller),
                 mode: MODE::IDLE,
             }
         }
@@ -50,81 +47,76 @@ mod nin_core {
         }
 
         #[allow(dead_code)]
-        pub fn is_cursor(&self) -> bool {
-            self.mode == MODE::CURSOR
-        }
-
-        #[allow(dead_code)]
-        pub fn fire_key_event(&mut self, key1: Key, key2: Key) {
-            if key1 == Key::Control && key2 == Key::Space {
-                self.mode = MODE::CURSOR;
+        pub fn pass_key(&mut self, key1: Key, key2: Key) -> String {
+            match self.mode {
+                MODE::IDLE => {
+                    if key1 == Key::Control && key2 == Key::Space {
+                        self.mode = MODE::CURSOR;
+                        "Mode: Cursor, Event: Change to Cursor".to_string()
+                    } else {
+                        "Mode: Idel, Event: None".to_string()
+                    }
+                },
+                MODE::CURSOR => {
+                    if key1 == Key::J && key2 == Key::Empty {
+                        "Mode: Cursor, Event: Move Cursor [0, 10]".to_string()
+                    } else {
+                        "Mode: Cursor, Event: None".to_string()
+                    }
+                }
             }
-
-            if self.mode == MODE::CURSOR && key1 == Key::J && key2 == Key::Empty {
-                self.mouse_controller.move_cursor(0, 10);
-            }
         }
-    }
-
-    pub trait MouseController {
-        fn move_cursor(&mut self, x: i32, y: i32);
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::nin_core::{MouseController, NinCore, Key};
-    use mockall::{mock, predicate};
+    use crate::nin_core::Key;
 
     use super::*;
 
-    mock! {
-        pub MockMouseController {}
-        impl MouseController for MockMouseController {
-            fn move_cursor(&mut self, x: i32, y: i32);
-        }
-    }
-
     #[test]
     fn nin_coreの起動時はアイドルモードになっている() {
-        let mock = MockMockMouseController::new();
-        let sut = nin_core::NinCore::new(mock);
+        let sut = nin_core::NinCore::new();
 
         assert_eq!(sut.is_idle(), true);
     }
 
     #[test]
-    fn nin_coreはctrlとspaceを受け取ったらカーソルモードになる() {
-        let mock = MockMockMouseController::new();
-        let mut sut = nin_core::NinCore::new(mock);
+    fn nin_corはアイドルモードでjを入力しても何もしない() {
+        let mut sut = nin_core::NinCore::new();
 
-        sut.fire_key_event(Key::Control, Key::Space);
+        let result = sut.pass_key(Key::J, Key::Empty);
 
-        assert_eq!(sut.is_cursor(), true);
+        assert_eq!(result, "Mode: Idel, Event: None");
     }
 
     #[test]
-    fn nin_coreはカーソルモードでjを入力するとカーソル位置を10下に下げる指令を出す() {
-        let mut mock = MockMockMouseController::new();
-        mock.expect_move_cursor()
-            .with(predicate::eq(0), predicate::eq(10))
-            .times(1).returning(|_, _| ());
+    fn nin_coreはアイドルモードでctrlとspaceを入力するとカーソルモードに移行する() {
+        let mut sut = nin_core::NinCore::new();
 
-        let mut nin = NinCore::new(mock);
+        let result = sut.pass_key(Key::Control, Key::Space);
 
-        nin.fire_key_event(Key::Control, Key::Space);
-        nin.fire_key_event(Key::J, Key::Empty);
+        assert_eq!(result, "Mode: Cursor, Event: Change to Cursor");
     }
 
     #[test]
-    fn nin_coreはカーソルモードでpを入力しても何もしない() {
-        let mut mock = MockMockMouseController::new();
-        mock.expect_move_cursor()
-            .times(0);
+    fn nin_coreはカーソルモードでjを入力するとカーソルを下に10移動するイベントを発行する() {
+        let mut sut = nin_core::NinCore::new();
+        sut.pass_key(Key::Control, Key::Space);
 
-        let mut sut = nin_core::NinCore::new(mock);
+        let result = sut.pass_key(Key::J, Key::Empty);
 
-        sut.fire_key_event(Key::Control, Key::Space);
-        sut.fire_key_event(Key::Other, Key::Empty);
+        assert_eq!(result, "Mode: Cursor, Event: Move Cursor [0, 10]");
+    }
+
+    #[test]
+    fn nin_coreはカーソルモードでspaceを入力しても何もしない() {
+        let mut sut = nin_core::NinCore::new();
+        sut.pass_key(Key::Control, Key::Space);
+
+        let result = sut.pass_key(Key::Space, Key::Empty);
+
+        assert_eq!(result, "Mode: Cursor, Event: None");
     }
 }
