@@ -25,6 +25,7 @@ mod nin_core {
         Control,
         Space,
         J,
+        Escape,
         Empty,
     }
 
@@ -60,6 +61,9 @@ mod nin_core {
                 MODE::CURSOR => {
                     if key1 == Key::J && key2 == Key::Empty {
                         "Mode: Cursor, Event: Move Cursor [0, 10]".to_string()
+                    } else if key1 == Key::Escape && key2 == Key::Empty {
+                        self.mode = MODE::IDLE;
+                        "Mode: Idel, Event: Change to Idel".to_string()
                     } else {
                         "Mode: Cursor, Event: None".to_string()
                     }
@@ -102,8 +106,7 @@ mod tests {
 
     #[test]
     fn nin_coreはカーソルモードでjを入力するとカーソルを下に10移動するイベントを発行する() {
-        let mut sut = nin_core::NinCore::new();
-        sut.pass_key(Key::Control, Key::Space);
+        let mut sut = nin_coreをカーソルモードとして生成する();
 
         let result = sut.pass_key(Key::J, Key::Empty);
 
@@ -112,11 +115,26 @@ mod tests {
 
     #[test]
     fn nin_coreはカーソルモードでspaceを入力しても何もしない() {
-        let mut sut = nin_core::NinCore::new();
-        sut.pass_key(Key::Control, Key::Space);
+        let mut sut = nin_coreをカーソルモードとして生成する();
 
         let result = sut.pass_key(Key::Space, Key::Empty);
 
         assert_eq!(result, "Mode: Cursor, Event: None");
+    }
+
+    #[test]
+    fn nin_coreはカーソルモードでescを入力するとアイドルモードに戻る() {
+        let mut sut = nin_coreをカーソルモードとして生成する();
+
+        let result = sut.pass_key(Key::Escape, Key::Empty);
+
+        assert_eq!(result, "Mode: Idel, Event: Change to Idel");
+    }
+
+    fn nin_coreをカーソルモードとして生成する() -> nin_core::NinCore {
+        let mut sut = nin_core::NinCore::new();
+        sut.pass_key(Key::Control, Key::Space);
+
+        sut
     }
 }
