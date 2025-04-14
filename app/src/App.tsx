@@ -1,20 +1,39 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import "./App.css";
 
 function App() {
   const [greetMsg, setGreetMsg] = useState("");
   const [name, setName] = useState("");
+  const [keyPresssedMessage, setKeyPresssedMessage] = useState<string | null>(null);
 
   async function greet() {
     // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
     setGreetMsg(await invoke("greet", { name }));
   }
 
+  function listenKeyPressed(payload: string) {
+    setKeyPresssedMessage(payload);
+  }
+
+  useEffect(() => {
+    // キー入力イベントをリッスン
+    const unlisten = listen<string>('key-pressed', (event) => {
+      listenKeyPressed(event.payload);
+    })
+
+    // コンポーネントのアンマウント時にリスナーを解除
+    return () => {
+      unlisten.then((fn: () => void) => fn())
+    }
+  }, [])
+
   return (
     <main className="container">
       <h1>Welcome to Tauri + React##</h1>
+      {keyPresssedMessage && <p>{keyPresssedMessage}</p>}
 
       <div className="row">
         <a href="https://vitejs.dev" target="_blank">

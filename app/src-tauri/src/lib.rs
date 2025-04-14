@@ -4,11 +4,39 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
+use device_query::{DeviceQuery, DeviceState, Keycode};
+use tauri::Emitter;
+use std::thread;
+use std::time::Duration;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![greet])
+        .setup(|app| {
+            #[cfg(desktop)]
+            {
+                // キーボードイベントを監視するスレッドを開始
+                let app_handle = app.handle().clone();
+                let device_state = DeviceState::new();
+                let mut sample = 0;
+                thread::spawn(move || {
+                    loop {
+                        let keys: Vec<Keycode> = device_state.get_keys();
+                        if !keys.is_empty() {
+                            println!("押されたキー: {:?}", keys);
+                            sample += 1;
+                            println!("count: {}", sample);
+                            // ここに実行したい処理を追加
+                            app_handle.emit("key-pressed", "キーが入力されました").unwrap();
+                        }
+                        thread::sleep(Duration::from_millis(50));
+                    }
+                });
+            }
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
