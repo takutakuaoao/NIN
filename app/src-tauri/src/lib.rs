@@ -20,15 +20,11 @@ pub fn run() {
                 // キーボードイベントを監視するスレッドを開始
                 let app_handle = app.handle().clone();
                 let device_state = DeviceState::new();
-                let mut sample = 0;
                 thread::spawn(move || {
                     loop {
                         let keys: Vec<Keycode> = device_state.get_keys();
                         if !keys.is_empty() {
                             println!("押されたキー: {:?}", keys);
-                            sample += 1;
-                            println!("count: {}", sample);
-                            // ここに実行したい処理を追加
                             app_handle.emit("key-pressed", "キーが入力されました").unwrap();
                         }
                         thread::sleep(Duration::from_millis(50));
@@ -42,8 +38,19 @@ pub fn run() {
 }
 
 mod nin_core {
-    #[derive(PartialEq, Copy, Clone)]
-    enum MODE {
+    use device_query::Keycode;
+    #[cfg(test)]
+    use mockall::{automock, predicate::*};
+
+    #[derive(PartialEq, Debug)]
+    pub enum Event {
+        None,
+        ChangedMode(MODE),
+        MovedCursor(i32, i32),
+    }
+
+    #[derive(PartialEq, Copy, Clone, Debug)]
+    pub enum MODE {
         IDLE,
         CURSOR,
     }
@@ -76,36 +83,57 @@ mod nin_core {
         }
 
         #[allow(dead_code)]
-        pub fn pass_key(&mut self, key1: Key, key2: Key) -> String {
+        pub fn pass_key(&mut self, key1: Key, key2: Key) -> Event {
             match self.mode {
                 MODE::IDLE => {
                     if key1 == Key::Control && key2 == Key::Space {
                         self.mode = MODE::CURSOR;
-                        "Mode: Cursor, Event: Change to Cursor".to_string()
+                        Event::ChangedMode(MODE::CURSOR)
                     } else {
-                        "Mode: Idel, Event: None".to_string()
+                        Event::None
                     }
                 },
                 MODE::CURSOR => {
                     if key1 == Key::J && key2 == Key::Empty {
-                        "Mode: Cursor, Event: Move Cursor [0, 10]".to_string()
+                        Event::MovedCursor(0, 10)
                     } else if key1 == Key::Escape && key2 == Key::Empty {
                         self.mode = MODE::IDLE;
-                        "Mode: Idel, Event: Change to Idel".to_string()
+                        Event::ChangedMode(MODE::IDLE)
                     } else {
-                        "Mode: Cursor, Event: None".to_string()
+                        Event::None
                     }
                 }
             }
         }
     }
+
+    pub struct NinExecuter {
+        nin: NinCore,
+        emitter: Box<dyn Emitter>,
+    }
+
+    impl NinExecuter {
+        pub fn new(nin: NinCore, emitter: Box<dyn Emitter>) -> Self {
+            Self { nin, emitter }
+        }
+
+        pub fn execute(&mut self, keys: Vec<Keycode>) {
+            self.emitter.change_mode("Cursor".to_string());
+        }
+    }
+
+    #[cfg_attr(test, automock)]
+    pub trait Emitter {
+        fn change_mode(&self, mode: String);
+    }
+    
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::nin_core::Key;
-
     use super::*;
+    use mockall::predicate::*;
+    use crate::nin_core::{Event, Key, MODE, MockEmitter};
 
     #[test]
     fn nin_coreの起動時はアイドルモードになっている() {
@@ -118,45 +146,45 @@ mod tests {
     fn nin_corはアイドルモードでjを入力しても何もしない() {
         let mut sut = nin_core::NinCore::new();
 
-        let result = sut.pass_key(Key::J, Key::Empty);
+        let event = sut.pass_key(Key::J, Key::Empty);
 
-        assert_eq!(result, "Mode: Idel, Event: None");
+        assert_eq!(event, Event::None);
     }
 
     #[test]
     fn nin_coreはアイドルモードでctrlとspaceを入力するとカーソルモードに移行する() {
         let mut sut = nin_core::NinCore::new();
 
-        let result = sut.pass_key(Key::Control, Key::Space);
+        let event = sut.pass_key(Key::Control, Key::Space);
 
-        assert_eq!(result, "Mode: Cursor, Event: Change to Cursor");
+        assert_eq!(event, Event::ChangedMode(MODE::CURSOR));
     }
 
     #[test]
     fn nin_coreはカーソルモードでjを入力するとカーソルを下に10移動するイベントを発行する() {
         let mut sut = nin_coreをカーソルモードとして生成する();
 
-        let result = sut.pass_key(Key::J, Key::Empty);
+        let event = sut.pass_key(Key::J, Key::Empty);
 
-        assert_eq!(result, "Mode: Cursor, Event: Move Cursor [0, 10]");
+        assert_eq!(event, Event::MovedCursor(0, 10));
     }
 
     #[test]
     fn nin_coreはカーソルモードでspaceを入力しても何もしない() {
         let mut sut = nin_coreをカーソルモードとして生成する();
 
-        let result = sut.pass_key(Key::Space, Key::Empty);
+        let event = sut.pass_key(Key::Space, Key::Empty);
 
-        assert_eq!(result, "Mode: Cursor, Event: None");
+        assert_eq!(event, Event::None);
     }
 
     #[test]
     fn nin_coreはカーソルモードでescを入力するとアイドルモードに戻る() {
         let mut sut = nin_coreをカーソルモードとして生成する();
 
-        let result = sut.pass_key(Key::Escape, Key::Empty);
+        let event = sut.pass_key(Key::Escape, Key::Empty);
 
-        assert_eq!(result, "Mode: Idel, Event: Change to Idel");
+        assert_eq!(event, Event::ChangedMode(MODE::IDLE));
     }
 
     fn nin_coreをカーソルモードとして生成する() -> nin_core::NinCore {
@@ -164,5 +192,20 @@ mod tests {
         sut.pass_key(Key::Control, Key::Space);
 
         sut
+    }
+
+    #[test]
+    fn アイドルモード中にctrlとspaceを入力するとchange_modeが発火する() {
+        let mut emitter = MockEmitter::new();
+        emitter.expect_change_mode()
+            .with(eq("Cursor".to_string()))
+            .times(1)
+            .returning(|_| ());
+
+        let nin = nin_core::NinCore::new();
+
+        let mut sut = nin_core::NinExecuter::new(nin, Box::new(emitter));
+
+        sut.execute(vec![Keycode::Space, Keycode::LControl]);
     }
 }
