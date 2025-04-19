@@ -5,7 +5,7 @@ fn greet(name: &str) -> String {
 }
 
 use device_query::{DeviceQuery, DeviceState, Keycode};
-use tauri::Emitter;
+use nin_core::{EnigoMouseController, FrontEndEmitter, NinCursorExecuter, NinEmitExecuter};
 use std::thread;
 use std::time::Duration;
 
@@ -20,14 +20,28 @@ pub fn run() {
                 // キーボードイベントを監視するスレッドを開始
                 let app_handle = app.handle().clone();
                 let device_state = DeviceState::new();
+
                 thread::spawn(move || {
+                    let mut emmiter_command = NinEmitExecuter::new(
+                        nin_core::NinCore::new(), 
+                        Box::new(FrontEndEmitter::new(app_handle))
+                    );
+
+                    let mut cursor_command = NinCursorExecuter::new(
+                        nin_core::NinCore::new(), 
+                        Box::new(EnigoMouseController::new())
+                    );
+
                     loop {
                         let keys: Vec<Keycode> = device_state.get_keys();
                         if !keys.is_empty() {
                             println!("押されたキー: {:?}", keys);
-                            app_handle.emit("key-pressed", "キーが入力されました").unwrap();
+                            let cursor_command_keys = keys.clone();
+
+                            emmiter_command.execute(keys);
+                            cursor_command.execute(cursor_command_keys);
                         }
-                        thread::sleep(Duration::from_millis(50));
+                        thread::sleep(Duration::from_millis(10));
                     }
                 });
             }
@@ -39,6 +53,8 @@ pub fn run() {
 
 mod nin_core {
     use device_query::Keycode;
+    use enigo::{Coordinate, Enigo, Mouse, Settings};
+    use tauri::{AppHandle, Emitter, Wry};
     #[cfg(test)]
     use mockall::{automock, predicate::*};
 
@@ -55,13 +71,12 @@ mod nin_core {
         CURSOR,
     }
 
-    #[derive(PartialEq)]
+    #[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
     pub enum Key {
         Control,
         Space,
         J,
         Escape,
-        Empty,
     }
 
     #[allow(dead_code)]
@@ -83,20 +98,23 @@ mod nin_core {
         }
 
         #[allow(dead_code)]
-        pub fn pass_key(&mut self, key1: Key, key2: Key) -> Event {
+        pub fn pass_key(&mut self, keys: Vec<Key>) -> Event {
+            let mut sorted_keys = keys.clone();
+            sorted_keys.sort();
+
             match self.mode {
                 MODE::IDLE => {
-                    if key1 == Key::Control && key2 == Key::Space {
+                    if sorted_keys == vec![Key::Control, Key::Space] {
                         self.mode = MODE::CURSOR;
                         Event::ChangedMode(MODE::CURSOR)
                     } else {
                         Event::None
                     }
-                },
+               },
                 MODE::CURSOR => {
-                    if key1 == Key::J && key2 == Key::Empty {
+                    if sorted_keys == vec![Key::J] {
                         Event::MovedCursor(0, 10)
-                    } else if key1 == Key::Escape && key2 == Key::Empty {
+                    } else if sorted_keys == vec![Key::Escape] {
                         self.mode = MODE::IDLE;
                         Event::ChangedMode(MODE::IDLE)
                     } else {
@@ -107,14 +125,14 @@ mod nin_core {
         }
     }
 
-    pub struct NinExecuter {
+    pub struct NinEmitExecuter {
         nin: NinCore,
-        emitter: Box<dyn Emitter>,
+        emitter: Box<dyn NinEmitter>,
     }
 
-    impl NinExecuter {
-        pub fn new(nin: NinCore, emitter: Box<dyn Emitter>) -> Self {
-            Self { nin, emitter }
+    impl NinEmitExecuter {
+        pub fn new(nin: NinCore, emitter: Box<dyn NinEmitter>) -> Self {
+            Self { nin, emitter}
         }
 
         pub fn execute(&mut self, keys: Vec<Keycode>) {
@@ -122,18 +140,101 @@ mod nin_core {
         }
     }
 
+    pub struct NinCursorExecuter {
+        nin: NinCore,
+        mouse_controller: Box<dyn MouseController>,
+    }
+
+    impl NinCursorExecuter {
+        pub fn new(nin: NinCore, mouse_controller: Box<dyn MouseController>) -> Self {
+            Self { nin, mouse_controller}
+        }
+
+        pub fn execute(&mut self, keys: Vec<Keycode>) {
+            let inputs = self.convert_keycode_to_key(keys);
+
+            let event = self.nin.pass_key(inputs);
+
+            match event {
+                Event::MovedCursor(x, y) => {
+                    self.mouse_controller.move_cursor(x, y);
+                },
+                _ => {}
+            }
+        }
+
+        fn convert_keycode_to_key(&self, keys: Vec<Keycode>) -> Vec<Key> {
+            let truncated_keys: Vec<Keycode> = keys.into_iter().take(2).collect();
+
+            let mut inputs = vec![];
+
+            for (_, key) in truncated_keys.iter().enumerate() {
+                match key {
+                    Keycode::Space => {
+                        inputs.push(Key::Space);
+                    },
+                    Keycode::LControl => {
+                        inputs.push(Key::Control);
+                    },
+                    Keycode::J => {
+                        inputs.push(Key::J);
+                    },
+                    _ => ()
+                }
+            }
+
+            inputs
+        }
+    }
+
     #[cfg_attr(test, automock)]
-    pub trait Emitter {
+    pub trait MouseController {
+        fn move_cursor(&mut self, x: i32, y: i32);
+    }
+
+    pub struct EnigoMouseController {
+        enigo: Enigo,
+    }
+
+    impl EnigoMouseController {
+        pub fn new() -> Self {
+            Self { enigo: Enigo::new(&Settings::default()).unwrap() }
+        }
+    }
+
+    impl MouseController for EnigoMouseController {
+        fn move_cursor(&mut self, x: i32, y: i32) {
+            self.enigo.move_mouse(x, y, Coordinate::Rel);
+        }
+    }
+
+    #[cfg_attr(test, automock)]
+    pub trait NinEmitter: Send {
         fn change_mode(&self, mode: String);
     }
-    
+
+    pub struct FrontEndEmitter {
+        emitter: AppHandle<Wry>,
+    }
+
+    impl FrontEndEmitter {
+        pub fn new(emitter: AppHandle<Wry>) -> Self {
+            Self { emitter }
+        }
+    }
+
+    impl NinEmitter for FrontEndEmitter {
+        fn change_mode(&self, mode: String) {
+            self.emitter.emit("changed_mode", mode).unwrap();
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use mockall::predicate::*;
-    use crate::nin_core::{Event, Key, MODE, MockEmitter};
+    use crate::nin_core::{Event, Key, MockMouseController, MockNinEmitter, MODE};
 
     #[test]
     fn nin_coreの起動時はアイドルモードになっている() {
@@ -146,7 +247,7 @@ mod tests {
     fn nin_corはアイドルモードでjを入力しても何もしない() {
         let mut sut = nin_core::NinCore::new();
 
-        let event = sut.pass_key(Key::J, Key::Empty);
+        let event = sut.pass_key(vec![Key::J]);
 
         assert_eq!(event, Event::None);
     }
@@ -155,7 +256,7 @@ mod tests {
     fn nin_coreはアイドルモードでctrlとspaceを入力するとカーソルモードに移行する() {
         let mut sut = nin_core::NinCore::new();
 
-        let event = sut.pass_key(Key::Control, Key::Space);
+        let event = sut.pass_key(vec![Key::Space, Key::Control]);
 
         assert_eq!(event, Event::ChangedMode(MODE::CURSOR));
     }
@@ -164,7 +265,7 @@ mod tests {
     fn nin_coreはカーソルモードでjを入力するとカーソルを下に10移動するイベントを発行する() {
         let mut sut = nin_coreをカーソルモードとして生成する();
 
-        let event = sut.pass_key(Key::J, Key::Empty);
+        let event = sut.pass_key(vec![Key::J]);
 
         assert_eq!(event, Event::MovedCursor(0, 10));
     }
@@ -173,7 +274,7 @@ mod tests {
     fn nin_coreはカーソルモードでspaceを入力しても何もしない() {
         let mut sut = nin_coreをカーソルモードとして生成する();
 
-        let event = sut.pass_key(Key::Space, Key::Empty);
+        let event = sut.pass_key(vec![Key::Space]);
 
         assert_eq!(event, Event::None);
     }
@@ -182,21 +283,21 @@ mod tests {
     fn nin_coreはカーソルモードでescを入力するとアイドルモードに戻る() {
         let mut sut = nin_coreをカーソルモードとして生成する();
 
-        let event = sut.pass_key(Key::Escape, Key::Empty);
+        let event = sut.pass_key(vec![Key::Escape]);
 
         assert_eq!(event, Event::ChangedMode(MODE::IDLE));
     }
 
     fn nin_coreをカーソルモードとして生成する() -> nin_core::NinCore {
         let mut sut = nin_core::NinCore::new();
-        sut.pass_key(Key::Control, Key::Space);
+        sut.pass_key(vec![Key::Space, Key::Control]);
 
         sut
     }
 
     #[test]
     fn アイドルモード中にctrlとspaceを入力するとchange_modeが発火する() {
-        let mut emitter = MockEmitter::new();
+        let mut emitter = MockNinEmitter::new();
         emitter.expect_change_mode()
             .with(eq("Cursor".to_string()))
             .times(1)
@@ -204,8 +305,37 @@ mod tests {
 
         let nin = nin_core::NinCore::new();
 
-        let mut sut = nin_core::NinExecuter::new(nin, Box::new(emitter));
+        let mut sut = nin_core::NinEmitExecuter::new(nin, Box::new(emitter));
 
         sut.execute(vec![Keycode::Space, Keycode::LControl]);
+    }
+
+    #[test]
+    fn カーソルモード中にjを入力するとカーソルを下に10移動するオペレーションを実行する() {
+        let mut mouse_controller = MockMouseController::new();
+        mouse_controller.expect_move_cursor()
+            .with(eq(0), eq(10))
+            .times(1)
+            .returning(|_, _| ());
+
+        let nin = nin_core::NinCore::new();
+
+        let mut sut = nin_core::NinCursorExecuter::new(nin, Box::new(mouse_controller));
+
+        sut.execute(vec![Keycode::Space, Keycode::LControl]);
+        sut.execute(vec![Keycode::J]);
+    }
+
+    #[test]
+    fn アイドルモード中にjを押しても何もしない() {
+        let mut mouse_controller = MockMouseController::new();
+        mouse_controller.expect_move_cursor()
+            .never();
+
+        let nin = nin_core::NinCore::new();
+
+        let mut sut = nin_core::NinCursorExecuter::new(nin, Box::new(mouse_controller));
+
+        sut.execute(vec![Keycode::J]);
     }
 }

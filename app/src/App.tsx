@@ -11,7 +11,7 @@ function App() {
 
   useEffect(() => {
     // キー入力イベントをリッスン
-    const unlisten = listen<string>('key-pressed', (event) => {
+    const unlisten = listen<string>('changed_mode', (event) => {
       listenKeyPressed(event.payload);
     })
 
@@ -23,7 +23,7 @@ function App() {
 
   return (
     <main className="container">
-      {keyPresssedMessage && <p>{keyPresssedMessage}</p>}
+      {keyPresssedMessage && <p>モード: {keyPresssedMessage}</p>}
     </main>
   );
 }
