@@ -71,11 +71,40 @@ mod nin_core {
         CURSOR,
     }
 
-    #[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
+    impl MODE {
+        pub fn pass_key(&self, keys: Vec<Key>) -> Event {
+            let mut sorted_keys = keys.clone();
+            sorted_keys.sort();
+
+            match self {
+                MODE::IDLE => {
+                    if sorted_keys == vec![Key::Control, Key::Space] {
+                        Event::ChangedMode(MODE::CURSOR)
+                    } else {
+                        Event::None
+                    }
+                },
+                MODE::CURSOR => {
+                    if sorted_keys == vec![Key::J] {
+                        Event::MovedCursor(0, 10)
+                    } else if sorted_keys == vec![Key::K] {
+                        Event::MovedCursor(0, -10)
+                    } else if sorted_keys == vec![Key::Escape] {
+                        Event::ChangedMode(MODE::IDLE)
+                    } else {
+                        Event::None
+                    }
+                }
+            }
+        }
+    }
+
+    #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
     pub enum Key {
         Control,
         Space,
         J,
+        K,
         Escape,
     }
 
@@ -99,29 +128,16 @@ mod nin_core {
 
         #[allow(dead_code)]
         pub fn pass_key(&mut self, keys: Vec<Key>) -> Event {
-            let mut sorted_keys = keys.clone();
-            sorted_keys.sort();
-
-            match self.mode {
-                MODE::IDLE => {
-                    if sorted_keys == vec![Key::Control, Key::Space] {
-                        self.mode = MODE::CURSOR;
-                        Event::ChangedMode(MODE::CURSOR)
-                    } else {
-                        Event::None
-                    }
-               },
-                MODE::CURSOR => {
-                    if sorted_keys == vec![Key::J] {
-                        Event::MovedCursor(0, 10)
-                    } else if sorted_keys == vec![Key::Escape] {
-                        self.mode = MODE::IDLE;
-                        Event::ChangedMode(MODE::IDLE)
-                    } else {
-                        Event::None
-                    }
-                }
+            let event = self.mode.pass_key(keys);
+            
+            match event {
+                Event::ChangedMode(mode) => {
+                    self.mode = mode;
+                },
+                _ => {}
             }
+
+            return event
         }
     }
 
@@ -235,6 +251,7 @@ mod tests {
     use super::*;
     use mockall::predicate::*;
     use crate::nin_core::{Event, Key, MockMouseController, MockNinEmitter, MODE};
+    use rstest::rstest;
 
     #[test]
     fn nin_coreの起動時はアイドルモードになっている() {
@@ -268,6 +285,15 @@ mod tests {
         let event = sut.pass_key(vec![Key::J]);
 
         assert_eq!(event, Event::MovedCursor(0, 10));
+    }
+
+    #[test]
+    fn nin_coreはカーソルモードでkを入力するとカーソルを上に10移動するイベントを発行する() {
+        let mut sut = nin_coreをカーソルモードとして生成する();
+
+        let event = sut.pass_key(vec![Key::K]);
+
+        assert_eq!(event, Event::MovedCursor(0, -10));
     }
 
     #[test]
@@ -337,5 +363,29 @@ mod tests {
         let mut sut = nin_core::NinCursorExecuter::new(nin, Box::new(mouse_controller));
 
         sut.execute(vec![Keycode::J]);
+    }
+
+    #[rstest(name, input, expected,
+        case("カーソルを下に移動", vec![Key::J], Event::MovedCursor(0, 10)),
+        case("カーソルを上に移動", vec![Key::K], Event::MovedCursor(0, -10)),
+        case("アイドルモードになる", vec![Key::Escape], Event::ChangedMode(MODE::IDLE)),
+    )]
+    fn カーソルモードのテスト(name: &str, input: Vec<Key>, expected: Event) {
+        let sut = nin_core::MODE::CURSOR;
+
+        let result = sut.pass_key(input);
+
+        assert_eq!(result, expected, "テストケース: {}", name);
+    }
+
+    #[rstest(name, input, expected,
+        case("カーソルモードに移行する", vec![Key::Space, Key::Control], Event::ChangedMode(MODE::CURSOR)),
+    )]
+    fn アイドルモードのテスト(name: &str, input: Vec<Key>, expected: Event) {
+        let sut = nin_core::MODE::IDLE;
+
+        let result = sut.pass_key(input);
+
+        assert_eq!(result, expected, "テストケース: {}", name);
     }
 }
