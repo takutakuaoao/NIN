@@ -1,0 +1,127 @@
+use device_query::Keycode;
+
+#[cfg(test)]
+use mockall::{automock, predicate::*};
+
+use super::core::{Event, Key, NinCore};
+
+pub struct EmitCommand {
+    nin: NinCore,
+    emitter: Box<dyn EmitExecuter>,
+}
+
+impl EmitCommand {
+    pub fn new(nin: NinCore, emitter: Box<dyn EmitExecuter>) -> Self {
+        EmitCommand { nin: nin, emitter: emitter }
+    }
+
+    pub fn execute(&mut self, keys: Vec<Keycode>) {
+        self.emitter.change_mode("Cursor".to_string());
+    }
+}
+
+#[cfg_attr(test, automock)]
+pub trait EmitExecuter: Send {
+    fn change_mode(&self, mode: String);
+}
+
+pub struct NinCursorExecuter {
+    nin: NinCore,
+    mouse_controller: Box<dyn MouseController>,
+}
+
+impl NinCursorExecuter {
+    pub fn new(nin: NinCore, mouse_controller: Box<dyn MouseController>) -> Self {
+        Self { nin, mouse_controller}
+    }
+
+    pub fn execute(&mut self, keys: Vec<Keycode>) {
+        let inputs = self.convert_keycode_to_key(keys);
+
+        let event = self.nin.pass_key(inputs);
+
+        match event {
+            Event::MovedCursor(x, y) => {
+                self.mouse_controller.move_cursor(x, y);
+            },
+            _ => {}
+        }
+    }
+
+    fn convert_keycode_to_key(&self, keys: Vec<Keycode>) -> Vec<Key> {
+        let truncated_keys: Vec<Keycode> = keys.into_iter().take(2).collect();
+
+        let mut inputs = vec![];
+
+        for (_, key) in truncated_keys.iter().enumerate() {
+            match key {
+                Keycode::Space => {
+                    inputs.push(Key::Space);
+                },
+                Keycode::LControl => {
+                    inputs.push(Key::Control);
+                },
+                Keycode::J => {
+                    inputs.push(Key::J);
+                },
+                Keycode::K => {
+                    inputs.push(Key::K);
+                },
+                _ => ()
+            }
+        }
+
+        inputs
+    }
+}
+
+#[cfg_attr(test, automock)]
+pub trait MouseController {
+    fn move_cursor(&mut self, x: i32, y: i32);
+}
+
+#[cfg(test)]
+mod tests {
+    use device_query::Keycode;
+    use mockall::predicate::eq;
+    use rstest::rstest;
+
+    use crate::nin::core::NinCore;
+
+    use super::{EmitCommand, MockEmitExecuter, MockMouseController, NinCursorExecuter};
+
+    #[test]
+    fn アイドルモード中にctrlとspaceを入力するとchange_modeが発火する() {
+        let mut emitter = MockEmitExecuter::new();
+        emitter
+            .expect_change_mode()
+            .with(eq("Cursor".to_string()))
+            .times(1)
+            .returning(|_| ());
+
+        let nin = NinCore::new();
+
+        let mut sut = EmitCommand::new(nin, Box::new(emitter));
+
+        sut.execute(vec![Keycode::Space, Keycode::LControl]);
+    }
+
+    #[rstest(name, expected_x, expected_y, input,
+        case("カーソルを下に移動", 0, 10, vec![Keycode::J]),
+        case("カーソルを上に移動", 0, -10, vec![Keycode::K]),
+    )]
+    fn カーソル操作(name: &str, expected_x: i32, expected_y: i32, input: Vec<Keycode>) {
+        let mut mouse_controller = MockMouseController::new();
+        mouse_controller.expect_move_cursor()
+            .with(eq(expected_x), eq(expected_y))
+            .times(1)
+            .returning(|_, _| ());
+
+        let nin = NinCore::new();
+
+        let mut sut = NinCursorExecuter::new(nin, Box::new(mouse_controller));
+
+        sut.execute(vec![Keycode::Space, Keycode::LControl]);
+        sut.execute(input);
+    }
+}
