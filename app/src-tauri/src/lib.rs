@@ -195,6 +195,9 @@ mod nin_core {
                     Keycode::J => {
                         inputs.push(Key::J);
                     },
+                    Keycode::K => {
+                        inputs.push(Key::K);
+                    },
                     _ => ()
                 }
             }
@@ -336,11 +339,14 @@ mod tests {
         sut.execute(vec![Keycode::Space, Keycode::LControl]);
     }
 
-    #[test]
-    fn カーソルモード中にjを入力するとカーソルを下に10移動するオペレーションを実行する() {
+    #[rstest(name, expected_x, expected_y, input,
+        case("カーソルを下に移動", 0, 10, vec![Keycode::J]),
+        case("カーソルを上に移動", 0, -10, vec![Keycode::K]),
+    )]
+    fn カーソル操作(name: &str, expected_x: i32, expected_y: i32, input: Vec<Keycode>) {
         let mut mouse_controller = MockMouseController::new();
         mouse_controller.expect_move_cursor()
-            .with(eq(0), eq(10))
+            .with(eq(expected_x), eq(expected_y))
             .times(1)
             .returning(|_, _| ());
 
@@ -349,7 +355,7 @@ mod tests {
         let mut sut = nin_core::NinCursorExecuter::new(nin, Box::new(mouse_controller));
 
         sut.execute(vec![Keycode::Space, Keycode::LControl]);
-        sut.execute(vec![Keycode::J]);
+        sut.execute(input);
     }
 
     #[test]
