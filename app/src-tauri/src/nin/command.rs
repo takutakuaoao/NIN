@@ -86,6 +86,9 @@ impl InputParser {
                 Keycode::H => {
                     result.push(Key::H);
                 },
+                Keycode::L => {
+                    result.push(Key::L);
+                },
                 _ => ()
             }
         }
@@ -149,6 +152,7 @@ mod tests {
         case(vec![Keycode::J], vec![Key::J]),
         case(vec![Keycode::K], vec![Key::K]),
         case(vec![Keycode::H], vec![Key::H]),
+        case(vec![Keycode::L], vec![Key::L]),
     )]
     fn インプットをパースする(inputs: Vec<Keycode>, expected: Vec<Key>) {
         let sut = InputParser::new(inputs);

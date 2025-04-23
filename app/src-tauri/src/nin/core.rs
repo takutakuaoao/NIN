@@ -37,6 +37,7 @@ pub enum Key {
     J,
     K,
     H,
+    L,
     Escape,
 }
 
@@ -73,6 +74,8 @@ impl MODE {
                     Event::MovedCursor(0, -10)
                 } else if sorted_keys == vec![Key::H] {
                     Event::MovedCursor(-10, 0)
+                } else if sorted_keys == vec![Key::L] {
+                    Event::MovedCursor(10, 0)
                 } else if sorted_keys == vec![Key::Escape] {
                     Event::ChangedMode(MODE::IDLE)
                 } else {
@@ -111,6 +114,7 @@ mod tests {
         case("jを入力するとカーソルを下に10移動する", vec![Key::J], Event::MovedCursor(0, 10)),
         case("kを入力するとカーソルを上に10移動する", vec![Key::K], Event::MovedCursor(0, -10)),
         case("hを入力するとカーソルを左に10移動する", vec![Key::H], Event::MovedCursor(-10, 0)),
+        case("lを入力するとカーソルを右に10移動する", vec![Key::L], Event::MovedCursor(10, 0)),
         case("escを入力するとアイドルモードに戻る", vec![Key::Escape], Event::ChangedMode(MODE::IDLE)),
         case("関係ないキーを入力しても何もしない", vec![Key::Space], Event::None),
     )]
