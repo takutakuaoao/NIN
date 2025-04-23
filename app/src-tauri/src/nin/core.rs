@@ -88,98 +88,38 @@ mod tests {
     use rstest::rstest;
     use crate::nin::core::{Event, Key, NinCore, MODE};
 
-    #[rstest(name, input, expected,
-        case("カーソルモードに移行する", vec![Key::Space, Key::Control], Event::ChangedMode(MODE::CURSOR)),
-    )]
-    fn アイドルモードのテスト(name: &str, input: Vec<Key>, expected: Event) {
-        let sut = MODE::IDLE;
-
-        let result = sut.pass_key(input);
-
-        assert_eq!(result, expected, "テストケース: {}", name);
-    }
-
-    #[rstest(name, input, expected,
-        case("カーソルを下に移動", vec![Key::J], Event::MovedCursor(0, 10)),
-        case("カーソルを上に移動", vec![Key::K], Event::MovedCursor(0, -10)),
-        case("アイドルモードになる", vec![Key::Escape], Event::ChangedMode(MODE::IDLE)),
-    )]
-    fn カーソルモードのテスト(name: &str, input: Vec<Key>, expected: Event) {
-        let sut = MODE::CURSOR;
-
-        let result = sut.pass_key(input);
-
-        assert_eq!(result, expected, "テストケース: {}", name);
-    }
-
     #[test]
-    fn nin_coreの起動時はアイドルモードになっている() {
+    fn 起動時はアイドルモードになっている() {
         let sut = NinCore::new();
 
         assert_eq!(sut.is_idle(), true);
     }
 
-    #[test]
-    fn nin_corはアイドルモードでjを入力しても何もしない() {
+    #[rstest(name, input, expected,
+        case("ctrlとspaceを入力するとカーソルモードに移行する", vec![Key::Space, Key::Control], Event::ChangedMode(MODE::CURSOR)),
+        case("関係ないキーを入力しても何もしない", vec![Key::J], Event::None),
+    )]
+    fn アイドルモード時のイベント発行(name: &str, input: Vec<Key>, expected: Event) {
         let mut sut = NinCore::new();
 
-        let event = sut.pass_key(vec![Key::J]);
+        let event = sut.pass_key(input);
 
-        assert_eq!(event, Event::None);
+        assert_eq!(event, expected, "テストケース: {}", name);
     }
 
-    #[test]
-    fn nin_coreはカーソルモードでescを入力するとアイドルモードに戻る() {
+    #[rstest(name, input, expected,
+        case("jを入力するとカーソルを下に10移動する", vec![Key::J], Event::MovedCursor(0, 10)),
+        case("kを入力するとカーソルを上に10移動する", vec![Key::K], Event::MovedCursor(0, -10)),
+        case("hを入力するとカーソルを左に10移動する", vec![Key::H], Event::MovedCursor(-10, 0)),
+        case("escを入力するとアイドルモードに戻る", vec![Key::Escape], Event::ChangedMode(MODE::IDLE)),
+        case("関係ないキーを入力しても何もしない", vec![Key::Space], Event::None),
+    )]
+    fn カーソルモード時のイベント発行(name: &str, input: Vec<Key>, expected: Event) {
         let mut sut = nin_coreをカーソルモードとして生成する();
 
-        let event = sut.pass_key(vec![Key::Escape]);
+        let event = sut.pass_key(input);
 
-        assert_eq!(event, Event::ChangedMode(MODE::IDLE));
-    }
-
-    #[test]
-    fn nin_coreはアイドルモードでctrlとspaceを入力するとカーソルモードに移行する() {
-        let mut sut = NinCore::new();
-
-        let event = sut.pass_key(vec![Key::Space, Key::Control]);
-
-        assert_eq!(event, Event::ChangedMode(MODE::CURSOR));
-    }
-
-    #[test]
-    fn nin_coreはカーソルモードでjを入力するとカーソルを下に10移動するイベントを発行する() {
-        let mut sut = nin_coreをカーソルモードとして生成する();
-
-        let event = sut.pass_key(vec![Key::J]);
-
-        assert_eq!(event, Event::MovedCursor(0, 10));
-    }
-
-    #[test]
-    fn nin_coreはカーソルモードでkを入力するとカーソルを上に10移動するイベントを発行する() {
-        let mut sut = nin_coreをカーソルモードとして生成する();
-
-        let event = sut.pass_key(vec![Key::K]);
-
-        assert_eq!(event, Event::MovedCursor(0, -10));
-    }
-
-    #[test]
-    fn nin_coreはカーソルモードでhを入力するとカーソルを左に10移動するイベントを発行する() {
-        let mut sut = nin_coreをカーソルモードとして生成する();
-
-        let event = sut.pass_key(vec![Key::H]);
-
-        assert_eq!(event, Event::MovedCursor(-10, 0));
-    }
-
-    #[test]
-    fn nin_coreはカーソルモードでspaceを入力しても何もしない() {
-        let mut sut = nin_coreをカーソルモードとして生成する();
-
-        let event = sut.pass_key(vec![Key::Space]);
-
-        assert_eq!(event, Event::None);
+        assert_eq!(event, expected, "テストケース: {}", name);
     }
 
     fn nin_coreをカーソルモードとして生成する() -> NinCore {
