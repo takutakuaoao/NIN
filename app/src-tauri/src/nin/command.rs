@@ -36,7 +36,7 @@ impl NinCursorExecuter {
     }
 
     pub fn execute(&mut self, keys: Vec<Keycode>) {
-        let inputs = self.convert_keycode_to_key(keys);
+        let inputs = InputParser::new(keys).parse();
 
         let event = self.nin.pass_key(inputs);
 
@@ -47,31 +47,47 @@ impl NinCursorExecuter {
             _ => {}
         }
     }
+}
 
-    fn convert_keycode_to_key(&self, keys: Vec<Keycode>) -> Vec<Key> {
-        let truncated_keys: Vec<Keycode> = keys.into_iter().take(2).collect();
+struct InputParser {
+    inputs: Vec<Keycode>
+}
 
-        let mut inputs = vec![];
+impl InputParser {
+    fn new(inputs: Vec<Keycode>) -> Self {
+        Self { inputs }
+    }
 
-        for (_, key) in truncated_keys.iter().enumerate() {
+    fn truncate(&self) -> Vec<Keycode> {
+        let inputs = self.inputs.clone();
+
+        inputs.into_iter().take(2).collect()
+    }
+
+    fn parse(&self) -> Vec<Key> {
+        let inputs = self.truncate();
+
+        let mut result = vec![];
+
+        for (_, key) in inputs.iter().enumerate() {
             match key {
                 Keycode::Space => {
-                    inputs.push(Key::Space);
+                    result.push(Key::Space);
                 },
                 Keycode::LControl => {
-                    inputs.push(Key::Control);
+                    result.push(Key::Control);
                 },
                 Keycode::J => {
-                    inputs.push(Key::J);
+                    result.push(Key::J);
                 },
                 Keycode::K => {
-                    inputs.push(Key::K);
+                    result.push(Key::K);
                 },
                 _ => ()
             }
         }
 
-        inputs
+        result
     }
 }
 
