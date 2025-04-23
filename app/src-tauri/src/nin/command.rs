@@ -150,7 +150,7 @@ mod tests {
         case(vec![Keycode::K], vec![Key::K]),
         case(vec![Keycode::H], vec![Key::H]),
     )]
-    fn インプットパーサーのテスト(inputs: Vec<Keycode>, expected: Vec<Key>) {
+    fn インプットをパースする(inputs: Vec<Keycode>, expected: Vec<Key>) {
         let sut = InputParser::new(inputs);
 
         let result = sut.parse();
