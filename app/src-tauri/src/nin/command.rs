@@ -83,6 +83,9 @@ impl InputParser {
                 Keycode::K => {
                     result.push(Key::K);
                 },
+                Keycode::H => {
+                    result.push(Key::H);
+                },
                 _ => ()
             }
         }
@@ -102,7 +105,7 @@ mod tests {
     use mockall::predicate::eq;
     use rstest::rstest;
 
-    use crate::nin::core::NinCore;
+    use crate::nin::{command::InputParser, core::{Key, NinCore}};
 
     use super::{EmitCommand, MockEmitExecuter, MockMouseController, NinCursorExecuter};
 
@@ -124,7 +127,6 @@ mod tests {
 
     #[rstest(name, expected_x, expected_y, input,
         case("カーソルを下に移動", 0, 10, vec![Keycode::J]),
-        case("カーソルを上に移動", 0, -10, vec![Keycode::K]),
     )]
     fn カーソル操作(name: &str, expected_x: i32, expected_y: i32, input: Vec<Keycode>) {
         let mut mouse_controller = MockMouseController::new();
@@ -139,5 +141,20 @@ mod tests {
 
         sut.execute(vec![Keycode::Space, Keycode::LControl]);
         sut.execute(input);
+    }
+
+    #[rstest(inputs, expected,
+        case(vec![Keycode::Space], vec![Key::Space]),
+        case(vec![Keycode::LControl], vec![Key::Control]),
+        case(vec![Keycode::J], vec![Key::J]),
+        case(vec![Keycode::K], vec![Key::K]),
+        case(vec![Keycode::H], vec![Key::H]),
+    )]
+    fn インプットパーサーのテスト(inputs: Vec<Keycode>, expected: Vec<Key>) {
+        let sut = InputParser::new(inputs);
+
+        let result = sut.parse();
+
+        assert_eq!(result, expected);
     }
 }

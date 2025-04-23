@@ -36,6 +36,7 @@ pub enum Key {
     Space,
     J,
     K,
+    H,
     Escape,
 }
 
@@ -70,6 +71,8 @@ impl MODE {
                     Event::MovedCursor(0, 10)
                 } else if sorted_keys == vec![Key::K] {
                     Event::MovedCursor(0, -10)
+                } else if sorted_keys == vec![Key::H] {
+                    Event::MovedCursor(-10, 0)
                 } else if sorted_keys == vec![Key::Escape] {
                     Event::ChangedMode(MODE::IDLE)
                 } else {
@@ -159,6 +162,15 @@ mod tests {
         let event = sut.pass_key(vec![Key::K]);
 
         assert_eq!(event, Event::MovedCursor(0, -10));
+    }
+
+    #[test]
+    fn nin_coreはカーソルモードでhを入力するとカーソルを左に10移動するイベントを発行する() {
+        let mut sut = nin_coreをカーソルモードとして生成する();
+
+        let event = sut.pass_key(vec![Key::H]);
+
+        assert_eq!(event, Event::MovedCursor(-10, 0));
     }
 
     #[test]
