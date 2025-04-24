@@ -38,6 +38,7 @@ pub enum Key {
     K,
     H,
     L,
+    I,
     Escape,
 }
 
@@ -46,6 +47,7 @@ pub enum Event {
     None,
     ChangedMode(MODE),
     MovedCursor(i32, i32),
+    Clicked,
 }
 
 #[derive(PartialEq, Copy, Clone, Debug)]
@@ -78,6 +80,8 @@ impl MODE {
                     Event::MovedCursor(10, 0)
                 } else if sorted_keys == vec![Key::Escape] {
                     Event::ChangedMode(MODE::IDLE)
+                }  else if sorted_keys == vec![Key::I] {
+                    Event::Clicked
                 } else {
                     Event::None
                 }
@@ -116,6 +120,7 @@ mod tests {
         case("hを入力するとカーソルを左に10移動する", vec![Key::H], Event::MovedCursor(-10, 0)),
         case("lを入力するとカーソルを右に10移動する", vec![Key::L], Event::MovedCursor(10, 0)),
         case("escを入力するとアイドルモードに戻る", vec![Key::Escape], Event::ChangedMode(MODE::IDLE)),
+        case("iを入力するとクリックイベントを発行する", vec![Key::I], Event::Clicked),
         case("関係ないキーを入力しても何もしない", vec![Key::Space], Event::None),
     )]
     fn カーソルモード時のイベント発行(name: &str, input: Vec<Key>, expected: Event) {

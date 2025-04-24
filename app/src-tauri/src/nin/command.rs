@@ -44,6 +44,9 @@ impl NinCursorExecuter {
             Event::MovedCursor(x, y) => {
                 self.mouse_controller.move_cursor(x, y);
             },
+            Event::Clicked => {
+                self.mouse_controller.click();
+            }
             _ => {}
         }
     }
@@ -89,6 +92,9 @@ impl InputParser {
                 Keycode::L => {
                     result.push(Key::L);
                 },
+                Keycode::I => {
+                    result.push(Key::I);
+                }
                 _ => ()
             }
         }
@@ -100,6 +106,7 @@ impl InputParser {
 #[cfg_attr(test, automock)]
 pub trait MouseController {
     fn move_cursor(&mut self, x: i32, y: i32);
+    fn click(&mut self);
 }
 
 #[cfg(test)]
@@ -138,12 +145,30 @@ mod tests {
             .times(1)
             .returning(|_, _| ());
 
-        let nin = NinCore::new();
+        let mut sut = カーソルモードの状態にして生成する(mouse_controller);
 
+        sut.execute(input);
+    }
+
+    #[test]
+    fn クリック操作() {
+        let mut mouse_controller = MockMouseController::new();
+        mouse_controller.expect_click()
+            .times(1)
+            .returning(|| ());
+
+        let mut sut = カーソルモードの状態にして生成する(mouse_controller);
+
+        sut.execute(vec![Keycode::I]);
+    }
+
+    fn カーソルモードの状態にして生成する(mouse_controller: MockMouseController) -> NinCursorExecuter {
+        let nin = NinCore::new();
         let mut sut = NinCursorExecuter::new(nin, Box::new(mouse_controller));
 
         sut.execute(vec![Keycode::Space, Keycode::LControl]);
-        sut.execute(input);
+
+        sut
     }
 
     #[rstest(inputs, expected,
@@ -153,6 +178,7 @@ mod tests {
         case(vec![Keycode::K], vec![Key::K]),
         case(vec![Keycode::H], vec![Key::H]),
         case(vec![Keycode::L], vec![Key::L]),
+        case(vec![Keycode::I], vec![Key::I]),
     )]
     fn インプットをパースする(inputs: Vec<Keycode>, expected: Vec<Key>) {
         let sut = InputParser::new(inputs);
