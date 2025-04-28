@@ -77,6 +77,9 @@ impl InputParser {
                 Keycode::Space => {
                     result.push(Key::Space);
                 },
+                Keycode::Escape => {
+                    result.push(Key::Escape);
+                },
                 Keycode::LControl => {
                     result.push(Key::Control);
                 },
@@ -189,6 +192,7 @@ mod tests {
 
     #[rstest(inputs, expected,
         case(vec![Keycode::Space], vec![Key::Space]),
+        case(vec![Keycode::Escape], vec![Key::Escape]),
         case(vec![Keycode::LControl], vec![Key::Control]),
         case(vec![Keycode::J], vec![Key::J]),
         case(vec![Keycode::K], vec![Key::K]),
