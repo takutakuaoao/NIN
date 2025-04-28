@@ -139,7 +139,7 @@ mod tests {
     use super::{EmitCommand, MockEmitExecuter, MockMouseController, NinCursorExecuter};
 
     #[test]
-    fn アイドルモード中にctrlとspaceを入力するとchange_modeが発火する() {
+    fn アイドルモード中にctrlとspaceを入力するとカーソルモードになる() {
         let nin = NinCore::new();
 
         let mut sut = EmitCommand::new(nin, Box::new(make_mock_emit_executer("Cursor".to_string())));
