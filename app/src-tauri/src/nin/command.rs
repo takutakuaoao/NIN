@@ -140,18 +140,23 @@ mod tests {
 
     #[test]
     fn アイドルモード中にctrlとspaceを入力するとchange_modeが発火する() {
+        let nin = NinCore::new();
+
+        let mut sut = EmitCommand::new(nin, Box::new(make_mock_emit_executer("Cursor".to_string())));
+
+        sut.execute(vec![Keycode::Space, Keycode::LControl]);
+    }
+
+    fn make_mock_emit_executer(expected_arg: String) -> MockEmitExecuter {
         let mut emitter = MockEmitExecuter::new();
+
         emitter
             .expect_change_mode()
-            .with(eq("Cursor".to_string()))
+            .with(eq(expected_arg))
             .times(1)
             .returning(|_| ());
 
-        let nin = NinCore::new();
-
-        let mut sut = EmitCommand::new(nin, Box::new(emitter));
-
-        sut.execute(vec![Keycode::Space, Keycode::LControl]);
+        emitter
     }
 
     #[rstest(name, expected_x, expected_y, input,
