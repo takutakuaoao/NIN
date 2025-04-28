@@ -142,19 +142,20 @@ mod tests {
     fn アイドルモード中にctrlとspaceを入力するとカーソルモードになる() {
         let nin = NinCore::new();
 
-        let mut sut = EmitCommand::new(nin, Box::new(make_mock_emit_executer("Cursor".to_string())));
+        let mut sut = EmitCommand::new(nin, Box::new(make_mock_emit_executer(vec!["Cursor".to_string()])));
 
         sut.execute(vec![Keycode::Space, Keycode::LControl]);
     }
 
-    fn make_mock_emit_executer(expected_arg: String) -> MockEmitExecuter {
+    fn make_mock_emit_executer(expected_args: Vec<String>) -> MockEmitExecuter {
         let mut emitter = MockEmitExecuter::new();
 
+        for arg in expected_args {
         emitter
             .expect_change_mode()
-            .with(eq(expected_arg))
-            .times(1)
+            .with(eq(arg))
             .returning(|_| ());
+        }
 
         emitter
     }
