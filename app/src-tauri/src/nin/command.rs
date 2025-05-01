@@ -16,7 +16,24 @@ impl EmitCommand {
     }
 
     pub fn execute(&mut self, keys: Vec<Keycode>) {
-        self.emitter.change_mode("Cursor".to_string());
+
+        let inptus = InputParser::new(keys).parse();
+
+        let event = self.nin.pass_key(inptus);
+
+        match event {
+            Event::ChangedMode(mode) => {
+                match mode {
+                    super::core::MODE::CURSOR => {
+                        self.emitter.change_mode("Cursor".to_string())
+                    },
+                    super::core::MODE::IDLE => {
+                        self.emitter.change_mode("Idle".to_string())
+                    }
+                }
+            },
+            _ => {}
+        }
     }
 }
 
@@ -140,21 +157,37 @@ mod tests {
 
     #[test]
     fn アイドルモード中にctrlとspaceを入力するとカーソルモードになる() {
-        let nin = NinCore::new();
+        let emitter = make_mock_emitter(vec![
+            "Cursor".to_string()
+        ]);
 
-        let mut sut = EmitCommand::new(nin, Box::new(make_mock_emit_executer(vec!["Cursor".to_string()])));
+        let mut sut = EmitCommand::new(NinCore::new(), Box::new(emitter));
 
         sut.execute(vec![Keycode::Space, Keycode::LControl]);
     }
 
-    fn make_mock_emit_executer(expected_args: Vec<String>) -> MockEmitExecuter {
+    #[test]
+    fn カーソルモード中にescapeを入力するとアイドルモードに変更する() {
+        let emitter = make_mock_emitter(vec![
+            "Cursor".to_string(), 
+            "Idle".to_string(),
+        ]);
+
+        let mut sut = EmitCommand::new(NinCore::new(), Box::new(emitter));
+
+        sut.execute(vec![Keycode::Space, Keycode::LControl]);
+        sut.execute(vec![Keycode::Escape]);
+    }
+
+    fn make_mock_emitter(expected_args: Vec<String>) -> MockEmitExecuter {
         let mut emitter = MockEmitExecuter::new();
 
         for arg in expected_args {
-        emitter
-            .expect_change_mode()
-            .with(eq(arg))
-            .returning(|_| ());
+            emitter
+                .expect_change_mode()
+                .with(eq(arg.clone()))
+                .times(1)
+                .returning(|_| ());    
         }
 
         emitter
